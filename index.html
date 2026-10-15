@@ -4,13 +4,62 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>RYNO Rating</title>
+<meta name="description" content="College football ratings and bets">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RYNO">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#F2F4F1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D1A13" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
 <style>
-  html, body { margin: 0; height: 100%; background: #0f1a14; }
-  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #F2F4F1; }
+  @media (prefers-color-scheme: dark) { html, body { background: #0D1A13; } }
+  /* the app fills the screen, kept clear of the iPhone notch and home bar when opened from the home screen */
+  iframe { position: fixed; border: 0; display: block;
+    top: env(safe-area-inset-top, 0px); left: env(safe-area-inset-left, 0px);
+    width: calc(100% - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+    height: calc(100% - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
 </style>
 </head>
 <body>
-<!-- TEST PAGE: paste your web app link (the one ending in /exec) between the quotes on the next line -->
-<iframe id="app" title="RYNO Rating" allow="clipboard-write" src="https://script.google.com/macros/s/AKfycbzS45B710u5tGFvMmsyAa4LTjzuncDsx1ttjRaWYmywXABqEZBk5AzPxg72_Hnpa_ES/exec"></iframe>
+<iframe id="app" title="RYNO Rating" allow="clipboard-write"></iframe>
+<script>
+/* ===== Paste your web app link (the one ending in /exec) between the quotes below. ===== */
+var APP_URL = 'https://script.google.com/macros/s/AKfycbzS45B710u5tGFvMmsyAa4LTjzuncDsx1ttjRaWYmywXABqEZBk5AzPxg72_Hnpa_ES/exec';
+
+/* Safari forgets what an app saves while it's shown inside another site's page, so this page keeps the app's own saved
+   items (sign-in, settings, instant-load copy, Top 10 memory, parlay slip) and hands them back when the app opens.
+   It only ever talks to Google's app frame inside this page, and it only stores the app's own items. */
+var KEYS = ['cfb_me_v1', 'cfb_app_v1', 'cfb_t10_v1', 'cfb_slip_v1', 'ryno_guide_seen_v1', 'cfb_hello_at'];
+var PREFIX = 'ryno_keep:';
+var APP_ORIGIN = /^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/;
+var frame = document.getElementById('app');
+frame.src = APP_URL + (location.search || '');          // a shared link (?view=…) opens the same screen
+
+function fromOurApp(src) {                              // the message came from a frame inside our own iframe
+  try { for (var w = src, i = 0; w && i < 6; i++) { if (w === frame.contentWindow) return true; if (w === w.parent) break; w = w.parent; } } catch (e) { }
+  return false;
+}
+function store() { try { return window.localStorage; } catch (e) { return null; } }
+window.addEventListener('message', function (e) {
+  var d = e.data;
+  if (!d || d.ryno !== 1 || !APP_ORIGIN.test(e.origin) || !fromOurApp(e.source)) return;
+  var ls = store();
+  if (d.t === 'get') {
+    var items = {};
+    if (ls) KEYS.forEach(function (k) { var v = null; try { v = ls.getItem(PREFIX + k); } catch (x) { } if (v !== null) items[k] = v; });
+    e.source.postMessage({ ryno: 1, t: 'data', items: items }, e.origin);
+  } else if (d.t === 'set' && ls && KEYS.indexOf(d.k) >= 0 && typeof d.v === 'string' && d.v.length < 4000000) {
+    try { ls.setItem(PREFIX + d.k, d.v); } catch (x) { }
+  } else if (d.t === 'del' && ls && KEYS.indexOf(d.k) >= 0) {
+    try { ls.removeItem(PREFIX + d.k); } catch (x) { }
+  } else if (d.t === 'nav' && typeof d.q === 'string' && /^(\?[\w=&%.~+\-:,|]*)?$/.test(d.q) && d.q.length < 500) {
+    try { history.replaceState(null, '', location.pathname + d.q); } catch (x) { }   // the address bar follows the screen you're on
+  }
+});
+</script>
 </body>
 </html>

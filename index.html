@@ -21,7 +21,7 @@
   #wrap { position: fixed; top: env(safe-area-inset-top, 0px); bottom: 0; left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px); overflow: hidden; }
   #wrap iframe { display: block; width: 100%; height: 100%; border: 0; }
   /* opened from the home screen: iPhone can end the page's fixed area short of the bottom, so size to the full screen instead */
-  @media (display-mode: standalone) { #wrap { bottom: auto; height: calc(100vh - env(safe-area-inset-top, 0px)); height: calc(100lvh - env(safe-area-inset-top, 0px)); } }
+  @media (display-mode: standalone) { #wrap { bottom: auto; height: calc(100vh - env(safe-area-inset-top, 0px)); height: calc(100lvh - env(safe-area-inset-top, 0px) - 30px); } }
 </style>
 </head>
 <body>

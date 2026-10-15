@@ -20,13 +20,16 @@
   /* the app fills the screen, kept clear of the iPhone notch when opened from the home screen (the app keeps its own tab bar above the home bar) */
   #wrap { position: fixed; top: env(safe-area-inset-top, 0px); bottom: 0; left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px); overflow: hidden; }
   #wrap iframe { display: block; width: 100%; height: 100%; border: 0; }
+  /* opened from the home screen: iPhone can end the page's fixed area short of the bottom, so size to the full screen instead */
+  @media (display-mode: standalone) { #wrap { bottom: auto; height: calc(100vh - env(safe-area-inset-top, 0px)); height: calc(100lvh - env(safe-area-inset-top, 0px)); } }
 </style>
 </head>
 <body>
 <div id="wrap"><iframe id="app" title="RYNO Rating" allow="clipboard-write"></iframe></div>
+<script src="link.js"></script>
 <script>
-/* ===== Paste your web app link (the one ending in /exec) between the quotes below. ===== */
-var APP_URL = 'https://script.google.com/macros/s/AKfycbzS45B710u5tGFvMmsyAa4LTjzuncDsx1ttjRaWYmywXABqEZBk5AzPxg72_Hnpa_ES/exec';
+/* Your web app link lives in link.js (one line), so this file can be replaced without pasting it again. */
+var APP_URL = window.RYNO_APP_URL || 'PASTE_YOUR_WEB_APP_LINK_HERE';
 
 /* Safari forgets what an app saves while it's shown inside another site's page, so this page keeps the app's own saved
    items (sign-in, settings, instant-load copy, Top 10 memory, parlay slip) and hands them back when the app opens.
@@ -60,6 +63,13 @@ window.addEventListener('message', function (e) {
   } else if (d.t === 'size' && typeof d.h === 'number' && d.h > 100 && d.h < 4000) {
     var r = frame.getBoundingClientRect().height - d.h;                   // the empty room Google's frame keeps below the app
     if (r >= 0 && r < 400 && Math.abs(r - room) > 1 && Date.now() - fitAt > 1000) { room = r; fit(); }   // (a report from before the last stretch is ignored)
+  } else if (d.t === 'dbg') {                                           // ?debug=1: this page's own measurements for the app's debug box
+    var probe = document.createElement('div'); probe.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);height:100lvh';
+    document.body.appendChild(probe); var pc = getComputedStyle(probe), wr = wrap.getBoundingClientRect(), fr = frame.getBoundingClientRect();
+    var info = { inner: innerWidth + 'x' + innerHeight, vv: window.visualViewport ? Math.round(visualViewport.height) : null, lvh: probe.getBoundingClientRect().height - parseFloat(pc.paddingTop) - parseFloat(pc.paddingBottom),
+      top: pc.paddingTop, bottom: pc.paddingBottom, wrap: Math.round(wr.top) + '–' + Math.round(wr.bottom), frame: Math.round(fr.height), room: room,
+      standalone: !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches) || !!navigator.standalone };
+    probe.remove(); e.source.postMessage({ ryno: 1, t: 'dbgr', info: info }, e.origin);
   } else if (d.t === 'nav' && typeof d.q === 'string' && /^(\?[\w=&%.~+\-:,|]*)?$/.test(d.q) && d.q.length < 500) {
     try { history.replaceState(null, '', location.pathname + d.q); } catch (x) { }   // the address bar follows the screen you're on
   }

@@ -29,7 +29,7 @@
 <script src="link.js"></script>
 <script>
 /* Your web app link lives in link.js (one line), so this file can be replaced without pasting it again. */
-var APP_URL = window.RYNO_APP_URL || 'https://script.google.com/macros/s/AKfycbzS45B710u5tGFvMmsyAa4LTjzuncDsx1ttjRaWYmywXABqEZBk5AzPxg72_Hnpa_ES/exec';
+var APP_URL = window.RYNO_APP_URL || 'PASTE_YOUR_WEB_APP_LINK_HERE';
 
 /* Safari forgets what an app saves while it's shown inside another site's page, so this page keeps the app's own saved
    items (sign-in, settings, instant-load copy, Top 10 memory, parlay slip) and hands them back when the app opens.
@@ -38,7 +38,7 @@ var KEYS = ['cfb_me_v1', 'cfb_app_v1', 'cfb_t10_v1', 'cfb_slip_v1', 'ryno_guide_
 var PREFIX = 'ryno_keep:';
 var APP_ORIGIN = /^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/;
 var frame = document.getElementById('app');
-frame.src = APP_URL + (location.search || '');          // a shared link (?view=…) opens the same screen
+frame.src = APP_URL + (location.search || (window.RYNO_DEBUG ? '?debug=1' : ''));          // a shared link (?view=…) opens the same screen
 
 function fromOurApp(src) {                              // the message came from a frame inside our own iframe
   try { for (var w = src, i = 0; w && i < 6; i++) { if (w === frame.contentWindow) return true; if (w === w.parent) break; w = w.parent; } } catch (e) { }
@@ -47,6 +47,22 @@ function fromOurApp(src) {                              // the message came from
 var wrap = document.getElementById('wrap'), room = 0, fitAt = 0;
 function fit() { fitAt = Date.now(); frame.style.height = room ? (wrap.clientHeight + room) + 'px' : ''; }   // stretch Google's frame so its empty room sits below the screen
 window.addEventListener('resize', fit);
+/* Debug: put  window.RYNO_DEBUG = true;  on a second line of link.js (or add ?debug=1 to the address) to show this page's measurements. */
+if (window.RYNO_DEBUG || /[?&]debug=1/.test(location.search)) (function () {
+  var box = document.createElement('div');
+  box.style.cssText = 'position:fixed;left:6px;right:6px;bottom:40%;z-index:99;background:rgba(160,0,0,.85);color:#fff;font:12px/1.35 monospace;padding:6px 8px;border-radius:8px;white-space:pre-wrap;pointer-events:none';
+  var P = function (css) { var d = document.createElement('div'); d.style.cssText = 'position:absolute;visibility:hidden;width:1px;' + css; document.body.appendChild(d); var v = d.getBoundingClientRect().height; d.remove(); return Math.round(v); };
+  var E = function (side) { var d = document.createElement('div'); d.style.cssText = 'position:absolute;visibility:hidden;height:env(safe-area-inset-' + side + ', 0px)'; document.body.appendChild(d); var v = d.getBoundingClientRect().height; d.remove(); return Math.round(v); };
+  var tick = function () {
+    var wr = wrap.getBoundingClientRect(), fr = frame.getBoundingClientRect();
+    box.textContent = 'PAGE inner ' + innerWidth + 'x' + innerHeight + ' outerH ' + outerHeight + ' screen ' + screen.width + 'x' + screen.height +
+      '\nclientH ' + document.documentElement.clientHeight + ' visual ' + (window.visualViewport ? Math.round(visualViewport.height) + ' @' + Math.round(visualViewport.offsetTop) : '-') +
+      '\nvh ' + P('height:100vh') + ' lvh ' + P('height:100lvh') + ' svh ' + P('height:100svh') + ' dvh ' + P('height:100dvh') +
+      '\nenv top ' + E('top') + ' bottom ' + E('bottom') + '  standalone ' + !!((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone) +
+      '\nwrap ' + Math.round(wr.top) + '-' + Math.round(wr.bottom) + '  frame ' + Math.round(fr.top) + '-' + Math.round(fr.bottom) + '  room ' + room;
+  };
+  document.body.appendChild(box); tick(); setInterval(tick, 1500);
+})();
 function store() { try { return window.localStorage; } catch (e) { return null; } }
 window.addEventListener('message', function (e) {
   var d = e.data;

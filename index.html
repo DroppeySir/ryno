@@ -17,8 +17,8 @@
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #F2F4F1; }
   @media (prefers-color-scheme: dark) { html, body { background: #0D1A13; } }
-  /* the app fills the screen, kept clear of the iPhone notch and home bar when opened from the home screen */
-    #wrap { position: fixed; top: env(safe-area-inset-top, 0px); bottom: 0; left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px); }
+  /* the app fills the screen, kept clear of the iPhone notch when opened from the home screen (the app keeps its own tab bar above the home bar) */
+  #wrap { position: fixed; top: env(safe-area-inset-top, 0px); bottom: 0; left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px); overflow: hidden; }
   #wrap iframe { display: block; width: 100%; height: 100%; border: 0; }
 </style>
 </head>
@@ -26,7 +26,7 @@
 <div id="wrap"><iframe id="app" title="RYNO Rating" allow="clipboard-write"></iframe></div>
 <script>
 /* ===== Paste your web app link (the one ending in /exec) between the quotes below. ===== */
-var APP_URL = 'https://script.google.com/macros/s/AKfycbzS45B710u5tGFvMmsyAa4LTjzuncDsx1ttjRaWYmywXABqEZBk5AzPxg72_Hnpa_ES/exec';
+var APP_URL = 'PASTE_YOUR_WEB_APP_LINK_HERE';
 
 /* Safari forgets what an app saves while it's shown inside another site's page, so this page keeps the app's own saved
    items (sign-in, settings, instant-load copy, Top 10 memory, parlay slip) and hands them back when the app opens.
@@ -41,6 +41,9 @@ function fromOurApp(src) {                              // the message came from
   try { for (var w = src, i = 0; w && i < 6; i++) { if (w === frame.contentWindow) return true; if (w === w.parent) break; w = w.parent; } } catch (e) { }
   return false;
 }
+var wrap = document.getElementById('wrap'), room = 0, fitAt = 0;
+function fit() { fitAt = Date.now(); frame.style.height = room ? (wrap.clientHeight + room) + 'px' : ''; }   // stretch Google's frame so its empty room sits below the screen
+window.addEventListener('resize', fit);
 function store() { try { return window.localStorage; } catch (e) { return null; } }
 window.addEventListener('message', function (e) {
   var d = e.data;
@@ -54,6 +57,9 @@ window.addEventListener('message', function (e) {
     try { ls.setItem(PREFIX + d.k, d.v); } catch (x) { }
   } else if (d.t === 'del' && ls && KEYS.indexOf(d.k) >= 0) {
     try { ls.removeItem(PREFIX + d.k); } catch (x) { }
+  } else if (d.t === 'size' && typeof d.h === 'number' && d.h > 100 && d.h < 4000) {
+    var r = frame.getBoundingClientRect().height - d.h;                   // the empty room Google's frame keeps below the app
+    if (r >= 0 && r < 400 && Math.abs(r - room) > 1 && Date.now() - fitAt > 1000) { room = r; fit(); }   // (a report from before the last stretch is ignored)
   } else if (d.t === 'nav' && typeof d.q === 'string' && /^(\?[\w=&%.~+\-:,|]*)?$/.test(d.q) && d.q.length < 500) {
     try { history.replaceState(null, '', location.pathname + d.q); } catch (x) { }   // the address bar follows the screen you're on
   }

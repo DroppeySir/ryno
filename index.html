@@ -28,16 +28,16 @@
 </style>
 </head>
 <body>
-<div id="strip"></div><div id="wrap"><iframe id="app" title="RYNO Rating" allow="clipboard-write"></iframe></div>
+<div id="strip"></div><div id="wrap"><iframe id="app" title="RYNO Rating" allow="clipboard-write; web-share"></iframe></div>
 <script src="link.js"></script>
 <script>
 /* Your web app link lives in link.js (one line), so this file can be replaced without pasting it again. */
-var APP_URL = window.RYNO_APP_URL || 'https://script.google.com/macros/s/AKfycbzS45B710u5tGFvMmsyAa4LTjzuncDsx1ttjRaWYmywXABqEZBk5AzPxg72_Hnpa_ES/exec';
+var APP_URL = window.RYNO_APP_URL || 'PASTE_YOUR_WEB_APP_LINK_HERE';
 
 /* Safari forgets what an app saves while it's shown inside another site's page, so this page keeps the app's own saved
    items (sign-in, settings, instant-load copy, Top 10 memory, parlay slip) and hands them back when the app opens.
    It only ever talks to Google's app frame inside this page, and it only stores the app's own items. */
-var KEYS = ['cfb_me_v1', 'cfb_app_v1', 'cfb_t10_v1', 'cfb_slip_v1', 'ryno_guide_seen_v1', 'cfb_hello_at'];
+var KEYS = ['cfb_me_v1', 'cfb_app_v1', 'cfb_t10_v1', 'cfb_slip_v1', 'ryno_guide_seen_v1', 'cfb_hello_at', 'cfb_theme_v1', 'cfb_seen_v1', 'cfb_seenres_v1', 'cfb_tip_home_v1'];
 var PREFIX = 'ryno_keep:';
 var APP_ORIGIN = /^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/;
 var frame = document.getElementById('app');
@@ -79,7 +79,8 @@ window.addEventListener('message', function (e) {
   if (d.t === 'get') {
     var items = {};
     if (ls) KEYS.forEach(function (k) { var v = null; try { v = ls.getItem(PREFIX + k); } catch (x) { } if (v !== null) items[k] = v; });
-    e.source.postMessage({ ryno: 1, t: 'data', items: items }, e.origin);
+    var standalone = !!((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone);   // opened from the home screen?
+    e.source.postMessage({ ryno: 1, t: 'data', items: items, standalone: standalone }, e.origin);
   } else if (d.t === 'set' && ls && KEYS.indexOf(d.k) >= 0 && typeof d.v === 'string' && d.v.length < 4000000) {
     try { ls.setItem(PREFIX + d.k, d.v); } catch (x) { }
   } else if (d.t === 'del' && ls && KEYS.indexOf(d.k) >= 0) {
@@ -100,5 +101,4 @@ window.addEventListener('message', function (e) {
 });
 </script>
 </body>
-</html>
 </html>

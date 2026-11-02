@@ -46,9 +46,9 @@
 var APP_URL = window.RYNO_APP_URL || 'https://script.google.com/macros/s/AKfycbzS45B710u5tGFvMmsyAa4LTjzuncDsx1ttjRaWYmywXABqEZBk5AzPxg72_Hnpa_ES/exec';
 
 /* Safari forgets what an app saves while it's shown inside another site's page, so this page keeps the app's own saved
-   items (sign-in, settings, instant-load copy, Top 10 memory, parlay slip) and hands them back when the app opens.
+   items (sign-in, settings, instant-load copy, Top 10 memory, parlay slip, books-board history) and hands them back when the app opens.
    It only ever talks to Google's app frame inside this page, and it only stores the app's own items. */
-var KEYS = ['cfb_me_v1', 'cfb_app_v1', 'cfb_t10_v1', 'cfb_slip_v1', 'ryno_guide_seen_v1', 'cfb_hello_at', 'cfb_theme_v1', 'cfb_seen_v1', 'cfb_seenres_v1', 'cfb_tip_home_v1'];
+var KEYS = ['cfb_me_v1', 'cfb_app_v1', 'cfb_t10_v1', 'cfb_slip_v1', 'ryno_guide_seen_v1', 'cfb_hello_at', 'cfb_theme_v1', 'cfb_seen_v1', 'cfb_seenres_v1', 'cfb_tip_home_v1', 'cfb_bh_v1'];
 var PREFIX = 'ryno_keep:';
 var APP_ORIGIN = /^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/;
 var frame = document.getElementById('app');

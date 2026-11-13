@@ -48,7 +48,7 @@ var APP_URL = window.RYNO_APP_URL || 'https://script.google.com/macros/s/AKfycbz
 /* Safari forgets what an app saves while it's shown inside another site's page, so this page keeps the app's own saved
    items (sign-in, settings, instant-load copy, Top 10 memory, parlay slip, books-board history) and hands them back when the app opens.
    It only ever talks to Google's app frame inside this page, and it only stores the app's own items. */
-var KEYS = ['cfb_me_v1', 'cfb_app_v1', 'cfb_t10_v1', 'cfb_slip_v1', 'ryno_guide_seen_v1', 'cfb_hello_at', 'cfb_theme_v1', 'cfb_seen_v1', 'cfb_seenres_v1', 'cfb_tip_home_v1', 'cfb_bh_v1', 'cfb_fit_v1'];      // + cfb_fit_v1 (Nov 13): Fit to screen is remembered between launches
+var KEYS = ['cfb_me_v1', 'cfb_app_v1', 'cfb_t10_v1', 'cfb_slip_v1', 'ryno_guide_seen_v1', 'cfb_hello_at', 'cfb_theme_v1', 'cfb_seen_v1', 'cfb_seenres_v1', 'cfb_tip_home_v1', 'cfb_bh_v1', 'cfb_fit_v1', 'cfb_fit_v2'];      // + cfb_fit_v1 (Nov 13): Fit to screen is remembered between launches
 var PREFIX = 'ryno_keep:';
 var APP_ORIGIN = /^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/;
 var frame = document.getElementById('app');
@@ -60,22 +60,32 @@ function fromOurApp(src) {                              // the message came from
 }
 var wrap = document.getElementById('wrap'), room = 0, fitAt = 0;
 function fit() { fitAt = Date.now(); frame.style.height = room ? (wrap.clientHeight + room) + 'px' : ''; }   // stretch Google's frame so its empty room sits below the screen
-/* Fit to screen › Bottom (Nov 13, 2026). Opened from the home screen, the iPhone ends this page's fixed area short of the bottom of the
-   screen, so the app's tab bar sits above an empty band. The app's Bottom setting (Account › Fit to screen) now makes the box around
-   the app that many points taller, so the bar moves down into the band; the strip follows underneath in the bar's color. */
-var strip = document.getElementById('strip'), baseH = null, extra = 0;
+/* The bottom of the screen (Nov 13, 2026). Opened from the home screen on iOS 26, the iPhone ends this page short of the bottom by
+   the height of the status bar (WebKit bug 301108: viewport-fit=cover with the see-through status bar). Nothing can be drawn in
+   that band until the page itself is made as tall as the screen, so that is done here; the box around the app then runs to 20 points
+   above the bottom edge (room for the home bar) and the strip below it carries the tab bar's color to the edge.
+   The app's Fit to screen › Bottom (0–20) lowers the box into those 20 points. */
+var strip = document.getElementById('strip'), lower = 0, IPHONE = /iPhone|iPod/.test(navigator.userAgent || '');
 function isStandalone() { return !!((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone); }
-function placeStrip() {
-  if (!extra) { strip.style.top = strip.style.bottom = strip.style.height = ''; return; }
-  strip.style.top = Math.round(wrap.getBoundingClientRect().bottom - 1) + 'px'; strip.style.bottom = 'auto'; strip.style.height = '240px';
+function probeH(css) { var d = document.createElement('div'); d.style.cssText = 'position:absolute;visibility:hidden;width:1px;' + css; document.body.appendChild(d); var v = d.getBoundingClientRect().height; d.remove(); return v; }
+function fullHeight() {                                   // the real height of the screen area this page is shown in
+  var sc = 0; try { if (IPHONE && screen.width && screen.height) sc = window.innerWidth > window.innerHeight ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height); } catch (e) { }
+  return Math.round(Math.max(probeH('height:100lvh'), window.innerHeight, sc));
 }
-function applyExtra() { wrap.style.height = ''; baseH = wrap.getBoundingClientRect().height; if (extra) wrap.style.height = (baseH + extra) + 'px'; placeStrip(); fit(); }
-function setExtra(b) {                                    // true when the box changed size
-  if (!isStandalone()) return false;
-  b = Math.max(0, Math.min(80, Math.round(b))); if (b === extra) return false;
-  extra = b; applyExtra(); return true;
+function keepNow() { return Math.max(0, 20 - lower); }
+function layout() {
+  if (!isStandalone()) { fit(); return; }
+  var H = fullHeight(), keep = keepNow();
+  document.documentElement.style.height = H + 'px'; document.body.style.height = H + 'px';
+  var top = wrap.getBoundingClientRect().top;
+  wrap.style.bottom = 'auto'; wrap.style.height = Math.max(200, H - top - keep) + 'px';
+  strip.style.top = (H - keep - 1) + 'px'; strip.style.bottom = 'auto'; strip.style.height = (keep + 80) + 'px';
+  fit();
 }
-window.addEventListener('resize', function () { if (extra) applyExtra(); else fit(); });
+window.addEventListener('resize', layout);
+window.addEventListener('orientationchange', function () { setTimeout(layout, 300); });
+window.addEventListener('pageshow', layout);
+layout();
 /* Keep the page pinned (Nov 13, 2026). On iPhone the page, or the box around the app, can be left nudged up after the keyboard closes,
    after switching apps or after rotating. Everything then draws a little higher than where touches land, so buttons only answer
    when tapped below. Whenever the keyboard is not showing, put the page and the box back to zero. */
@@ -107,7 +117,8 @@ if (window.RYNO_DEBUG || /[?&]debug=1/.test(location.search)) (function () {
       '\nvh ' + P('height:100vh') + ' lvh ' + P('height:100lvh') + ' svh ' + P('height:100svh') + ' dvh ' + P('height:100dvh') +
       '\nenv top ' + E('top') + ' bottom ' + E('bottom') + '  standalone ' + !!((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone) +
       '\nwrap ' + Math.round(wr.top) + '-' + Math.round(wr.bottom) + '  frame ' + Math.round(fr.top) + '-' + Math.round(fr.bottom) + '  room ' + room +
-      '\nnudge: page ' + Math.round(window.scrollY) + ' box ' + Math.round(wrap.scrollTop) + ' view ' + (window.visualViewport ? Math.round(visualViewport.offsetTop) : '-') + ' keyboard ' + kbUp() + '  bottom +' + extra;
+      '\nnudge: page ' + Math.round(window.scrollY) + ' box ' + Math.round(wrap.scrollTop) + ' view ' + (window.visualViewport ? Math.round(visualViewport.offsetTop) : '-') + ' keyboard ' + kbUp() +
+      '\nfull ' + fullHeight() + ' keep ' + keepNow() + ' html ' + Math.round(document.documentElement.getBoundingClientRect().height) + ' strip ' + Math.round(strip.getBoundingClientRect().top);
   };
   document.body.appendChild(box); tick(); setInterval(tick, 1500);
 })();
@@ -137,15 +148,17 @@ window.addEventListener('message', function (e) {
   } else if (d.t === 'size' && typeof d.h === 'number' && d.h > 100 && d.h < 4000) {
     var hb = typeof d.b === 'number' && isFinite(d.b) && d.b >= 0 && d.b <= 200 ? d.b : null;   // the app's Bottom setting (v391 on); older apps don't send it
     if (typeof d.c === 'string' && /^(#[0-9a-f]{3,8}|rgba?\([0-9., %]+\))$/i.test(d.c)) strip.style.backgroundColor = d.c;   // the tab bar's own color
-    if (hb !== null && setExtra(hb)) return;                              // the box just changed size: the app reports again once it has
+    if (hb !== null && isStandalone()) { var nl = Math.max(0, Math.min(20, Math.round(hb))); if (nl !== lower) { lower = nl; layout(); return; } }   // the box just changed size: the app reports again once it has
     var r = frame.getBoundingClientRect().height - (d.h + (hb || 0));     // the empty room Google's frame keeps below the app
     if (r >= 0 && r < 400 && Math.abs(r - room) > 1 && Date.now() - fitAt > 1000) { room = r; fit(); }   // (a report from before the last stretch is ignored)
   } else if (d.t === 'dbg') {                                           // ?debug=1: this page's own measurements for the app's debug box
     var probe = document.createElement('div'); probe.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);height:100lvh';
     document.body.appendChild(probe); var pc = getComputedStyle(probe), wr = wrap.getBoundingClientRect(), fr = frame.getBoundingClientRect();
-    var info = { inner: innerWidth + 'x' + innerHeight, vv: window.visualViewport ? Math.round(visualViewport.height) : null, lvh: probe.getBoundingClientRect().height - parseFloat(pc.paddingTop) - parseFloat(pc.paddingBottom),
-      top: pc.paddingTop, bottom: pc.paddingBottom, wrap: Math.round(wr.top) + '–' + Math.round(wr.bottom), frame: Math.round(fr.height), room: room,
-      standalone: !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches) || !!navigator.standalone };
+    var info = { inner: innerWidth + 'x' + innerHeight, screen: screen.width + 'x' + screen.height, vv: window.visualViewport ? Math.round(visualViewport.height) + '@' + Math.round(visualViewport.offsetTop) : null,
+      vh: Math.round(probeH('height:100vh')), lvh: Math.round(probeH('height:100lvh')), svh: Math.round(probeH('height:100svh')), dvh: Math.round(probeH('height:100dvh')),
+      top: pc.paddingTop, bottom: pc.paddingBottom, html: Math.round(document.documentElement.getBoundingClientRect().height), full: fullHeight(), keep: keepNow(),
+      wrap: Math.round(wr.top) + '–' + Math.round(wr.bottom), frame: Math.round(fr.height), room: room, strip: Math.round(strip.getBoundingClientRect().top), scroll: Math.round(window.scrollY) + '/' + Math.round(wrap.scrollTop),
+      standalone: isStandalone(), page: 'Nov 13 c' };
     probe.remove(); e.source.postMessage({ ryno: 1, t: 'dbgr', info: info }, e.origin);
   } else if (d.t === 'settle') {                                        // the app says a typing box just closed, or it came back to the front
     settleSoon();

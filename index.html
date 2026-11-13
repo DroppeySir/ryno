@@ -34,8 +34,9 @@
   @keyframes ryno-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
   @media (prefers-color-scheme: dark) { #splash { background: #0D1A13; } #splash b { color: #e9b949; background-image: linear-gradient(120deg, #d9a636, #fff0b8 45%, #e9b949 70%, #c99a2e); } }
   @media (prefers-reduced-motion: reduce) { #splash b { animation: none; } }
-  /* opened from the home screen: iPhone can end the page's fixed area short of the bottom, so size to the full screen instead */
-  @media (display-mode: standalone) { #wrap { bottom: auto; height: calc(100vh - env(safe-area-inset-top, 0px)); height: calc(100lvh - env(safe-area-inset-top, 0px) - 20px); } }
+  /* opened from the home screen (the script below adds .hs and --full, the screen's real height): the box runs from under the status bar to the
+     screen's bottom edge. Done in CSS so it stays right whenever iPhone reports the status-bar height, including after the script has run. */
+  html.hs #wrap { bottom: auto; height: calc(var(--full) - env(safe-area-inset-top, 0px)); }
 </style>
 </head>
 <body>
@@ -59,7 +60,7 @@ function fromOurApp(src) {                              // the message came from
   return false;
 }
 var wrap = document.getElementById('wrap'), room = 0, fitAt = 0;
-function fit() { fitAt = Date.now(); frame.style.height = room ? (wrap.clientHeight + room) + 'px' : ''; }   // stretch Google's frame so its empty room sits below the screen
+function fit() { fitAt = Date.now(); frame.style.height = room ? 'calc(100% + ' + room + 'px)' : ''; }   // stretch Google's frame so its empty room sits below the screen
 /* The bottom of the screen (Nov 13, 2026). Opened from the home screen on iOS 26, the iPhone ends this page short of the bottom by
    the height of the status bar (WebKit bug 301108: viewport-fit=cover with the see-through status bar). Nothing can be drawn in
    that band until the page itself is made as tall as the screen, so that is done here, and the box around the app runs to the
@@ -72,12 +73,15 @@ function fullHeight() {                                   // the real height of 
   return Math.round(Math.max(probeH('height:100lvh'), window.innerHeight, sc));
 }
 function keepNow() { return 0; }                          // (was 20 until Nov 13 d: the app now leaves its own room under the tab buttons)
+var fullWas = 0;
 function layout() {
-  if (!isStandalone()) { fit(); return; }
-  var H = fullHeight(), keep = keepNow();
-  document.documentElement.style.height = H + 'px'; document.body.style.height = H + 'px';
-  var top = wrap.getBoundingClientRect().top;
-  wrap.style.bottom = 'auto'; wrap.style.height = Math.max(200, H - top - keep) + 'px';
+  var on = isStandalone(), el = document.documentElement;
+  el.classList.toggle('hs', on);
+  if (!on) { fit(); return; }
+  var H = fullHeight(), keep = keepNow(); fullWas = H;
+  el.style.height = H + 'px'; document.body.style.height = H + 'px';
+  el.style.setProperty('--full', H + 'px');             // the box's own height is CSS (above): screen height less the status bar, whenever that is known.
+  wrap.style.bottom = ''; wrap.style.height = '';       // (Until Nov 13 e the status-bar height was read once here; at launch iPhone can still say 0, which left the box too tall and the tab bar off the bottom.)
   strip.style.top = (H - keep - 1) + 'px'; strip.style.bottom = 'auto'; strip.style.height = (keep + 80) + 'px';
   fit();
 }
@@ -102,7 +106,7 @@ window.addEventListener('scroll', function () { setTimeout(settle, 80); }, { pas
 wrap.addEventListener('scroll', function () { setTimeout(settle, 80); }, { passive: true });
 window.addEventListener('pageshow', settleSoon); window.addEventListener('focus', settleSoon); window.addEventListener('orientationchange', settleSoon);
 document.addEventListener('visibilitychange', function () { if (!document.hidden) settleSoon(); });
-setInterval(settle, 2000);                               // a backstop: only acts when something is actually off zero
+setInterval(function () { settle(); if (isStandalone() && !kbUp() && fullHeight() !== fullWas) layout(); }, 2000);   // a backstop: only acts when something is actually off
 /* Debug: put  window.RYNO_DEBUG = true;  on a second line of link.js (or add ?debug=1 to the address) to show this page's measurements. */
 if (window.RYNO_DEBUG || /[?&]debug=1/.test(location.search)) (function () {
   var box = document.createElement('div');
@@ -156,7 +160,7 @@ window.addEventListener('message', function (e) {
       vh: Math.round(probeH('height:100vh')), lvh: Math.round(probeH('height:100lvh')), svh: Math.round(probeH('height:100svh')), dvh: Math.round(probeH('height:100dvh')),
       top: pc.paddingTop, bottom: pc.paddingBottom, html: Math.round(document.documentElement.getBoundingClientRect().height), full: fullHeight(), keep: keepNow(),
       wrap: Math.round(wr.top) + '–' + Math.round(wr.bottom), frame: Math.round(fr.height), room: room, strip: Math.round(strip.getBoundingClientRect().top), scroll: Math.round(window.scrollY) + '/' + Math.round(wrap.scrollTop),
-      standalone: isStandalone(), page: 'Nov 13 d' };
+      standalone: isStandalone(), page: 'Nov 13 e' };
     probe.remove(); e.source.postMessage({ ryno: 1, t: 'dbgr', info: info }, e.origin);
   } else if (d.t === 'settle') {                                        // the app says a typing box just closed, or it came back to the front
     settleSoon();

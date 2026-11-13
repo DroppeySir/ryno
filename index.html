@@ -48,7 +48,7 @@ var APP_URL = window.RYNO_APP_URL || 'https://script.google.com/macros/s/AKfycbz
 /* Safari forgets what an app saves while it's shown inside another site's page, so this page keeps the app's own saved
    items (sign-in, settings, instant-load copy, Top 10 memory, parlay slip, books-board history) and hands them back when the app opens.
    It only ever talks to Google's app frame inside this page, and it only stores the app's own items. */
-var KEYS = ['cfb_me_v1', 'cfb_app_v1', 'cfb_t10_v1', 'cfb_slip_v1', 'ryno_guide_seen_v1', 'cfb_hello_at', 'cfb_theme_v1', 'cfb_seen_v1', 'cfb_seenres_v1', 'cfb_tip_home_v1', 'cfb_bh_v1'];
+var KEYS = ['cfb_me_v1', 'cfb_app_v1', 'cfb_t10_v1', 'cfb_slip_v1', 'ryno_guide_seen_v1', 'cfb_hello_at', 'cfb_theme_v1', 'cfb_seen_v1', 'cfb_seenres_v1', 'cfb_tip_home_v1', 'cfb_bh_v1', 'cfb_fit_v1'];      // + cfb_fit_v1 (Nov 13): Fit to screen is remembered between launches
 var PREFIX = 'ryno_keep:';
 var APP_ORIGIN = /^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/;
 var frame = document.getElementById('app');
@@ -61,6 +61,24 @@ function fromOurApp(src) {                              // the message came from
 var wrap = document.getElementById('wrap'), room = 0, fitAt = 0;
 function fit() { fitAt = Date.now(); frame.style.height = room ? (wrap.clientHeight + room) + 'px' : ''; }   // stretch Google's frame so its empty room sits below the screen
 window.addEventListener('resize', fit);
+/* Keep the page pinned (Nov 13, 2026). On iPhone the page, or the box around the app, can be left nudged up after the keyboard closes,
+   after switching apps or after rotating. Everything then draws a little higher than where touches land, so buttons only answer
+   when tapped below. Whenever the keyboard is not showing, put the page and the box back to zero. */
+function kbUp() { var v = window.visualViewport; return !!v && v.height < window.innerHeight - 120; }
+function nudged() { var v = window.visualViewport; return !!(window.scrollY || window.scrollX || wrap.scrollTop || wrap.scrollLeft || document.documentElement.scrollTop || document.body.scrollTop || (v && (v.offsetTop > 0.5 || v.offsetLeft > 0.5))); }
+function settle(force) {
+  if (kbUp()) return;                                    // typing: iPhone moves the page on purpose so the box stays in view
+  if (!force && !nudged()) return;
+  try { wrap.scrollTop = 0; wrap.scrollLeft = 0; } catch (e) { }
+  try { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; } catch (e) { }
+}
+function settleSoon() { [60, 300, 800, 1600].forEach(function (ms) { setTimeout(function () { settle(true); }, ms); }); }
+if (window.visualViewport) { visualViewport.addEventListener('resize', settleSoon); visualViewport.addEventListener('scroll', function () { setTimeout(settle, 80); }); }
+window.addEventListener('scroll', function () { setTimeout(settle, 80); }, { passive: true });
+wrap.addEventListener('scroll', function () { setTimeout(settle, 80); }, { passive: true });
+window.addEventListener('pageshow', settleSoon); window.addEventListener('focus', settleSoon); window.addEventListener('orientationchange', settleSoon);
+document.addEventListener('visibilitychange', function () { if (!document.hidden) settleSoon(); });
+setInterval(settle, 2000);                               // a backstop: only acts when something is actually off zero
 /* Debug: put  window.RYNO_DEBUG = true;  on a second line of link.js (or add ?debug=1 to the address) to show this page's measurements. */
 if (window.RYNO_DEBUG || /[?&]debug=1/.test(location.search)) (function () {
   var box = document.createElement('div');
@@ -73,7 +91,8 @@ if (window.RYNO_DEBUG || /[?&]debug=1/.test(location.search)) (function () {
       '\nclientH ' + document.documentElement.clientHeight + ' visual ' + (window.visualViewport ? Math.round(visualViewport.height) + ' @' + Math.round(visualViewport.offsetTop) : '-') +
       '\nvh ' + P('height:100vh') + ' lvh ' + P('height:100lvh') + ' svh ' + P('height:100svh') + ' dvh ' + P('height:100dvh') +
       '\nenv top ' + E('top') + ' bottom ' + E('bottom') + '  standalone ' + !!((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone) +
-      '\nwrap ' + Math.round(wr.top) + '-' + Math.round(wr.bottom) + '  frame ' + Math.round(fr.top) + '-' + Math.round(fr.bottom) + '  room ' + room;
+      '\nwrap ' + Math.round(wr.top) + '-' + Math.round(wr.bottom) + '  frame ' + Math.round(fr.top) + '-' + Math.round(fr.bottom) + '  room ' + room +
+      '\nnudge: page ' + Math.round(window.scrollY) + ' box ' + Math.round(wrap.scrollTop) + ' view ' + (window.visualViewport ? Math.round(visualViewport.offsetTop) : '-') + ' keyboard ' + kbUp();
   };
   document.body.appendChild(box); tick(); setInterval(tick, 1500);
 })();
@@ -110,6 +129,8 @@ window.addEventListener('message', function (e) {
       top: pc.paddingTop, bottom: pc.paddingBottom, wrap: Math.round(wr.top) + '–' + Math.round(wr.bottom), frame: Math.round(fr.height), room: room,
       standalone: !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches) || !!navigator.standalone };
     probe.remove(); e.source.postMessage({ ryno: 1, t: 'dbgr', info: info }, e.origin);
+  } else if (d.t === 'settle') {                                        // the app says a typing box just closed, or it came back to the front
+    settleSoon();
   } else if (d.t === 'nav' && typeof d.q === 'string' && /^(\?[\w=&%.~+\-:,|]*)?$/.test(d.q) && d.q.length < 500) {
     try { history.replaceState(null, '', location.pathname + d.q); } catch (x) { }   // the address bar follows the screen you're on
   }

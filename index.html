@@ -48,7 +48,7 @@ var APP_URL = window.RYNO_APP_URL || 'https://script.google.com/macros/s/AKfycbz
 /* Safari forgets what an app saves while it's shown inside another site's page, so this page keeps the app's own saved
    items (sign-in, settings, instant-load copy, Top 10 memory, parlay slip, books-board history) and hands them back when the app opens.
    It only ever talks to Google's app frame inside this page, and it only stores the app's own items. */
-var KEYS = ['cfb_me_v1', 'cfb_app_v1', 'cfb_t10_v1', 'cfb_slip_v1', 'ryno_guide_seen_v1', 'cfb_hello_at', 'cfb_theme_v1', 'cfb_seen_v1', 'cfb_seenres_v1', 'cfb_tip_home_v1', 'cfb_bh_v1', 'cfb_fit_v1', 'cfb_fit_v2'];      // + cfb_fit_v1 (Nov 13): Fit to screen is remembered between launches
+var KEYS = ['cfb_me_v1', 'cfb_app_v1', 'cfb_t10_v1', 'cfb_slip_v1', 'ryno_guide_seen_v1', 'cfb_hello_at', 'cfb_theme_v1', 'cfb_seen_v1', 'cfb_seenres_v1', 'cfb_tip_home_v1', 'cfb_bh_v1', 'cfb_fit_v1', 'cfb_fit_v2', 'cfb_fit_v3'];      // + cfb_fit_v1 (Nov 13): Fit to screen is remembered between launches
 var PREFIX = 'ryno_keep:';
 var APP_ORIGIN = /^https:\/\/[a-z0-9-]+-script\.googleusercontent\.com$/;
 var frame = document.getElementById('app');
@@ -62,9 +62,8 @@ var wrap = document.getElementById('wrap'), room = 0, fitAt = 0;
 function fit() { fitAt = Date.now(); frame.style.height = room ? (wrap.clientHeight + room) + 'px' : ''; }   // stretch Google's frame so its empty room sits below the screen
 /* The bottom of the screen (Nov 13, 2026). Opened from the home screen on iOS 26, the iPhone ends this page short of the bottom by
    the height of the status bar (WebKit bug 301108: viewport-fit=cover with the see-through status bar). Nothing can be drawn in
-   that band until the page itself is made as tall as the screen, so that is done here; the box around the app then runs to 20 points
-   above the bottom edge (room for the home bar) and the strip below it carries the tab bar's color to the edge.
-   The app's Fit to screen › Bottom (0–20) lowers the box into those 20 points. */
+   that band until the page itself is made as tall as the screen, so that is done here, and the box around the app runs to the
+   screen's bottom edge. The app keeps its own room under the tab buttons (Fit to screen › Bottom), so the bar's color reaches the edge. */
 var strip = document.getElementById('strip'), lower = 0, IPHONE = /iPhone|iPod/.test(navigator.userAgent || '');
 function isStandalone() { return !!((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone); }
 function probeH(css) { var d = document.createElement('div'); d.style.cssText = 'position:absolute;visibility:hidden;width:1px;' + css; document.body.appendChild(d); var v = d.getBoundingClientRect().height; d.remove(); return v; }
@@ -72,7 +71,7 @@ function fullHeight() {                                   // the real height of 
   var sc = 0; try { if (IPHONE && screen.width && screen.height) sc = window.innerWidth > window.innerHeight ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height); } catch (e) { }
   return Math.round(Math.max(probeH('height:100lvh'), window.innerHeight, sc));
 }
-function keepNow() { return Math.max(0, 20 - lower); }
+function keepNow() { return 0; }                          // (was 20 until Nov 13 d: the app now leaves its own room under the tab buttons)
 function layout() {
   if (!isStandalone()) { fit(); return; }
   var H = fullHeight(), keep = keepNow();
@@ -148,7 +147,6 @@ window.addEventListener('message', function (e) {
   } else if (d.t === 'size' && typeof d.h === 'number' && d.h > 100 && d.h < 4000) {
     var hb = typeof d.b === 'number' && isFinite(d.b) && d.b >= 0 && d.b <= 200 ? d.b : null;   // the app's Bottom setting (v391 on); older apps don't send it
     if (typeof d.c === 'string' && /^(#[0-9a-f]{3,8}|rgba?\([0-9., %]+\))$/i.test(d.c)) strip.style.backgroundColor = d.c;   // the tab bar's own color
-    if (hb !== null && isStandalone()) { var nl = Math.max(0, Math.min(20, Math.round(hb))); if (nl !== lower) { lower = nl; layout(); return; } }   // the box just changed size: the app reports again once it has
     var r = frame.getBoundingClientRect().height - (d.h + (hb || 0));     // the empty room Google's frame keeps below the app
     if (r >= 0 && r < 400 && Math.abs(r - room) > 1 && Date.now() - fitAt > 1000) { room = r; fit(); }   // (a report from before the last stretch is ignored)
   } else if (d.t === 'dbg') {                                           // ?debug=1: this page's own measurements for the app's debug box
@@ -158,7 +156,7 @@ window.addEventListener('message', function (e) {
       vh: Math.round(probeH('height:100vh')), lvh: Math.round(probeH('height:100lvh')), svh: Math.round(probeH('height:100svh')), dvh: Math.round(probeH('height:100dvh')),
       top: pc.paddingTop, bottom: pc.paddingBottom, html: Math.round(document.documentElement.getBoundingClientRect().height), full: fullHeight(), keep: keepNow(),
       wrap: Math.round(wr.top) + '–' + Math.round(wr.bottom), frame: Math.round(fr.height), room: room, strip: Math.round(strip.getBoundingClientRect().top), scroll: Math.round(window.scrollY) + '/' + Math.round(wrap.scrollTop),
-      standalone: isStandalone(), page: 'Nov 13 c' };
+      standalone: isStandalone(), page: 'Nov 13 d' };
     probe.remove(); e.source.postMessage({ ryno: 1, t: 'dbgr', info: info }, e.origin);
   } else if (d.t === 'settle') {                                        // the app says a typing box just closed, or it came back to the front
     settleSoon();

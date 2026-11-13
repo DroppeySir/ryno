@@ -60,7 +60,22 @@ function fromOurApp(src) {                              // the message came from
 }
 var wrap = document.getElementById('wrap'), room = 0, fitAt = 0;
 function fit() { fitAt = Date.now(); frame.style.height = room ? (wrap.clientHeight + room) + 'px' : ''; }   // stretch Google's frame so its empty room sits below the screen
-window.addEventListener('resize', fit);
+/* Fit to screen › Bottom (Nov 13, 2026). Opened from the home screen, the iPhone ends this page's fixed area short of the bottom of the
+   screen, so the app's tab bar sits above an empty band. The app's Bottom setting (Account › Fit to screen) now makes the box around
+   the app that many points taller, so the bar moves down into the band; the strip follows underneath in the bar's color. */
+var strip = document.getElementById('strip'), baseH = null, extra = 0;
+function isStandalone() { return !!((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone); }
+function placeStrip() {
+  if (!extra) { strip.style.top = strip.style.bottom = strip.style.height = ''; return; }
+  strip.style.top = Math.round(wrap.getBoundingClientRect().bottom - 1) + 'px'; strip.style.bottom = 'auto'; strip.style.height = '240px';
+}
+function applyExtra() { wrap.style.height = ''; baseH = wrap.getBoundingClientRect().height; if (extra) wrap.style.height = (baseH + extra) + 'px'; placeStrip(); fit(); }
+function setExtra(b) {                                    // true when the box changed size
+  if (!isStandalone()) return false;
+  b = Math.max(0, Math.min(80, Math.round(b))); if (b === extra) return false;
+  extra = b; applyExtra(); return true;
+}
+window.addEventListener('resize', function () { if (extra) applyExtra(); else fit(); });
 /* Keep the page pinned (Nov 13, 2026). On iPhone the page, or the box around the app, can be left nudged up after the keyboard closes,
    after switching apps or after rotating. Everything then draws a little higher than where touches land, so buttons only answer
    when tapped below. Whenever the keyboard is not showing, put the page and the box back to zero. */
@@ -92,7 +107,7 @@ if (window.RYNO_DEBUG || /[?&]debug=1/.test(location.search)) (function () {
       '\nvh ' + P('height:100vh') + ' lvh ' + P('height:100lvh') + ' svh ' + P('height:100svh') + ' dvh ' + P('height:100dvh') +
       '\nenv top ' + E('top') + ' bottom ' + E('bottom') + '  standalone ' + !!((window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone) +
       '\nwrap ' + Math.round(wr.top) + '-' + Math.round(wr.bottom) + '  frame ' + Math.round(fr.top) + '-' + Math.round(fr.bottom) + '  room ' + room +
-      '\nnudge: page ' + Math.round(window.scrollY) + ' box ' + Math.round(wrap.scrollTop) + ' view ' + (window.visualViewport ? Math.round(visualViewport.offsetTop) : '-') + ' keyboard ' + kbUp();
+      '\nnudge: page ' + Math.round(window.scrollY) + ' box ' + Math.round(wrap.scrollTop) + ' view ' + (window.visualViewport ? Math.round(visualViewport.offsetTop) : '-') + ' keyboard ' + kbUp() + '  bottom +' + extra;
   };
   document.body.appendChild(box); tick(); setInterval(tick, 1500);
 })();
@@ -100,7 +115,7 @@ var appWin = null, appOrigin = null;                     // the app frame, once 
 var splash = document.getElementById('splash');
 function hideSplash() { if (!splash || splash.classList.contains('gone')) return; splash.classList.add('gone'); setTimeout(function () { if (splash) { splash.remove(); splash = null; } }, 400); }
 setTimeout(hideSplash, 20000);                            // never stuck: gone after 20 s whatever happens
-document.getElementById('strip').addEventListener('click', function (e) {
+strip.addEventListener('click', function (e) {
   if (appWin && appOrigin) appWin.postMessage({ ryno: 1, t: 'tap', x: e.clientX / window.innerWidth }, appOrigin);
 });
 function store() { try { return window.localStorage; } catch (e) { return null; } }
@@ -120,7 +135,10 @@ window.addEventListener('message', function (e) {
   } else if (d.t === 'del' && ls && KEYS.indexOf(d.k) >= 0) {
     try { ls.removeItem(PREFIX + d.k); } catch (x) { }
   } else if (d.t === 'size' && typeof d.h === 'number' && d.h > 100 && d.h < 4000) {
-    var r = frame.getBoundingClientRect().height - d.h;                   // the empty room Google's frame keeps below the app
+    var hb = typeof d.b === 'number' && isFinite(d.b) && d.b >= 0 && d.b <= 200 ? d.b : null;   // the app's Bottom setting (v391 on); older apps don't send it
+    if (typeof d.c === 'string' && /^(#[0-9a-f]{3,8}|rgba?\([0-9., %]+\))$/i.test(d.c)) strip.style.backgroundColor = d.c;   // the tab bar's own color
+    if (hb !== null && setExtra(hb)) return;                              // the box just changed size: the app reports again once it has
+    var r = frame.getBoundingClientRect().height - (d.h + (hb || 0));     // the empty room Google's frame keeps below the app
     if (r >= 0 && r < 400 && Math.abs(r - room) > 1 && Date.now() - fitAt > 1000) { room = r; fit(); }   // (a report from before the last stretch is ignored)
   } else if (d.t === 'dbg') {                                           // ?debug=1: this page's own measurements for the app's debug box
     var probe = document.createElement('div'); probe.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);height:100lvh';
